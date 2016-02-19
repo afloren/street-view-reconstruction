@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>street view test</title>
+
+<script src="https://code.jquery.com/jquery-2.2.0.min.js" crossorigin="anonymous"></script>
+
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+
+<style>
+.map {
+  height: 45%;
+}
+</style>
+
+</head>
+<body>
+  <div class="container" role="main">
+    <div class="jumbotron">
+      <h1>Street View Structure from Motion</h1>
+    </div>
+    <div class="row">
+      <div id="map" class="map col-md-6"></div>
+      <div id="pano" class="map col-md-6"></div>
+    </div>
+    <div class="page-header">
+      <h1>Controls</h1>
+    </div>
+    <p>
+      <button id="start" type="button" class="btn btn-lg btn-primary">Start</button>
+      <button id="reset" type="button" class="btn btn-lg btn-primary">Reset</button>
+    </p>
+</div>
+
+<script>
+    var map;
+    var panorama;
+    var sv;
+    var start;
+    var panos = {};
+
+    function addPanoMarker(data) {
+      var marker = new google.maps.Marker({
+          position: data.location.latLng,
+          map: map,
+          title: data.location.description
+      })
+
+      console.debug(data);
+
+      marker.pano = data.location.pano;
+
+      marker.addListener('click', function() {
+          panorama.setPano(data.location.pano);
+          panorama.setPov({
+              heading: 270,
+              pitch: 0
+          });
+          panorama.setVisible(true);
+      });
+
+      return marker;
+    }
+
+    function initMap() {
+        var congress = {lat: 30.268052, lng: -97.742799};
+
+        sv = new google.maps.StreetViewService();
+
+        panorama = new google.maps.StreetViewPanorama($("#pano").get(0));
+
+        map = new google.maps.Map($("#map").get(0), {
+            center: congress,
+            zoom: 16,
+            streetViewControl: false
+        });
+
+        map.addListener('click', function(event) {
+          sv.getPanorama({location: event.latLng, radius: 50},
+            function(data, status) {
+              if (status === google.maps.StreetViewStatus.OK){
+                if (start) {
+                  start.setMap(null);
+                }
+                start = addPanoMarker(data);
+              }
+            })
+        })
+    }
+
+    function getLinkedPanos(data, status, depth) {
+        if (status === google.maps.StreetViewStatus.OK) {
+
+          panos[data.location.pano] = addPanoMarker(data);
+
+            if (depth < 10) {
+                data.links.forEach(function(link, index, array) {
+                    if (!panos.hasOwnProperty(link.pano)) {
+                        sv.getPanorama({pano: link.pano},
+                            function(data, status) {getLinkedPanos(data, status, depth+1);});
+                    } else {
+                      console.debug('hello?')
+                    }
+                })
+            }
+        } else {
+            console.error('Street view data not found for this location.');
+        }
+    }
+
+    $("#start").click(function() {
+      if(start) {
+        sv.getPanorama({pano: start.pano},
+                       function(data, status) {
+                         getLinkedPanos(data, status, 0);
+                       });
+      }
+    })
+
+    $("#reset").click(function() {
+      Object.keys(panos).forEach(function(key,index) {
+        panos[key].setMap(null);
+      })
+      panos = {};
+    })
+
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXhsJBTO5H6uOGZEluodyf8gM0wvdHWZU&signed_in=true&callback=initMap" async defer></script>
+</body>
+</html>
