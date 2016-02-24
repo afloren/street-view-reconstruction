@@ -36,6 +36,8 @@
     <p>
       <button id="start" type="button" class="btn btn-lg btn-primary">Start</button>
       <button id="reset" type="button" class="btn btn-lg btn-primary">Reset</button>
+      <button id="export" type="button" class="btn btn-lg btn-primary">Export</button>
+      <a href="#" id="download" type="button" class="btn btn-lg btn-primary" download="panos.json">Download</a>
     </p>
 </div>
 
@@ -53,9 +55,7 @@
           title: data.location.description
       })
 
-      console.debug(data);
-
-      marker.pano = data.location.pano;
+      marker.data = data;
 
       marker.addListener('click', function() {
           panorama.setPano(data.location.pano);
@@ -100,7 +100,7 @@
 
           panos[data.location.pano] = addPanoMarker(data);
 
-            if (depth < 10) {
+            if (depth < 1) {
                 data.links.forEach(function(link, index, array) {
                     if (!panos.hasOwnProperty(link.pano)) {
                         sv.getPanorama({pano: link.pano},
@@ -117,7 +117,7 @@
 
     $("#start").click(function() {
       if(start) {
-        sv.getPanorama({pano: start.pano},
+        sv.getPanorama({pano: start.data.location.pano},
                        function(data, status) {
                          getLinkedPanos(data, status, 0);
                        });
@@ -129,6 +129,20 @@
         panos[key].setMap(null);
       })
       panos = {};
+    })
+
+    var blobFile = null;
+    $("#export").click(function() {
+      var dataArray = [];
+      Object.keys(panos).forEach(function(key,index) {
+        dataArray.push(panos[key].data);
+      })
+      var blob = new Blob([JSON.stringify(dataArray)], {type: 'text/plain'});
+      if (blobFile != null) {
+        window.URL.revokeObjectURL(blobFile);
+      }
+      blobFile = window.URL.createObjectURL(blob);
+      $("#download")[0].href = blobFile;
     })
 
 </script>
